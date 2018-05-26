@@ -244,7 +244,6 @@ public class Crossword
     
     /**
      * Moves the cursor to the next empty square, which depends on whether we are currently working down or across.
-     * TODO make this work like NYT: go to next clue rather than next square when at end of clue
      */
     public void tab(int x, int y, boolean wasEmpty) {
     		// first, try to just move one square "forward"
