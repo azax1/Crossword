@@ -25,7 +25,7 @@ import javax.swing.event.DocumentListener;
  * what-is-the-best-way-to-create-gui-for-a-crossword-puzzle-java
  *
  * @author Aryeh Zax
- * @version 05/25/18
+ * @version 05/26/18
  */
 
 public class Crossword
@@ -46,6 +46,14 @@ public class Crossword
 	// stores clues
 	private String[] acrossClues;
 	private String[] downClues;
+	
+	// if n is a blah clue, blahStarts[n] stores { x, y }, the coordinates of that clue's beginning
+	private int[][] acrossStarts;
+	private int[][] downStarts;
+	
+	// stores the number of the currently selected clue
+	private int acrossIndex;
+	private int downIndex;
 	
 	// displays both relevant clues
 	private JLabel across;
@@ -69,6 +77,21 @@ public class Crossword
         });
     }
 
+    	private int[] getClues(int x, int y) {
+    		int[] ret = new int[2];
+    		int w = x;
+	    	int z = y;
+	    	while (type[w][z] <= 0 || type[w][z] >= downClues.length || downClues[type[w][z]] == null)
+	    		w--;
+	    	ret[0] = type[w][z];
+	    	
+	    	w = x;
+	    	while (type[w][z] <= 0 || type[w][z] >= acrossClues.length || acrossClues[type[w][z]] == null)
+	    		z--;
+	    	ret[1] = type[w][z];
+	    	
+	    	return ret;
+    	}
     /**
      * Update the banner text to read what the across and down clues are for the given square.
      */
@@ -77,20 +100,12 @@ public class Crossword
     		panel.textFields[x][y].grabFocus();
 	    panel.textFields[x][y].selectAll();
 	    	
-	    	// find the down clue this is part of
-	    	int w = x;
-	    	int z = y;
-	    	while (type[w][z] <= 0 || type[w][z] >= downClues.length || downClues[type[w][z]] == null)
-	    		w--;
-	    	int downClue = type[w][z];
-	    	down.setText(downClue + "-Down: " + downClues[downClue]);
+	    int[] wz = getClues(x, y);
+	    	downIndex = wz[0];
+	    	acrossIndex = wz[1];
 	    	
-	    	// find the across clue this is part of
-	    	w = x;
-	    	while (type[w][z] <= 0 || type[w][z] >= acrossClues.length || acrossClues[type[w][z]] == null)
-	    		z--;
-	    	int acrossClue = type[w][z];
-	    	across.setText(acrossClue + "-Across: " + acrossClues[acrossClue]);
+	    	down.setText(downIndex + "-Down: " + downClues[downIndex]);
+	    	across.setText(acrossIndex + "-Across: " + acrossClues[acrossIndex]);
     }
     
     private void createAndShowGUI()
@@ -135,6 +150,8 @@ public class Crossword
 	    	Scanner sc = new Scanner(new File(fileName));
 	    	sc.nextLine();
 	    	acrossClues = new String[sc.nextInt() + 1];
+	    	acrossStarts = new int[acrossClues.length][2];
+	    	for (int i = 0; i < acrossStarts.length; i++) { acrossStarts[i] = null; }
 	    	sc.nextLine();
 	    	sc.nextLine();
 	    	while(true)
@@ -148,6 +165,8 @@ public class Crossword
 	    	sc.nextLine();
 	    	sc.nextLine();
 	    	downClues = new String[sc.nextInt() + 1];
+	    downStarts = new int[downClues.length][2];
+    		for (int i = 0; i < downStarts.length; i++) { downStarts[i] = null; }
 	    	sc.nextLine();
 	    	sc.nextLine();
 	    	while(true)
@@ -177,10 +196,27 @@ public class Crossword
 	    	sc.close();
 	    	
 	    	int num = 1;
-	    	for (int i = 0; i < type.length; i++)
-	    		for (int k = 0; k < type.length; k++)
-	       			if (type[i][k] != -1 && (i == 0 || k == 0 || type[i - 1][k] == -1 || type[i][k - 1] == -1))
-	       				type[i][k] = num++;
+	    	for (int i = 0; i < type.length; i++) {
+	    		for (int k = 0; k < type.length; k++) {
+	       			if (type[i][k] != -1) {
+	       				if (i == 0 || type[i - 1][k] == -1) { // down clue
+	       					downStarts[num] = new int[]{ i - 1, k };
+	       					type[i][k] = num;
+	       					
+	       					// ugly, but whether or not you increment num is hard
+	       					if (k == 0 || type[i][k - 1] == -1) { // across clue too
+		       					acrossStarts[num] = new int[]{ i, k - 1 };
+		       				}
+	       					num++;
+	       					continue;
+	       				}
+	       				if (k == 0 || type[i][k - 1] == -1) { // across clue only
+	       					acrossStarts[num] = new int[]{ i, k - 1 };
+	       					type[i][k] = num++;
+	       				}
+	       			}
+	    		}
+	    	}
 	    	
 	        char[][] crossword = new char[w][h];
 	        for (int x = 0; x < w; x++)
@@ -208,46 +244,65 @@ public class Crossword
      * TODO make this work like NYT: go to next clue rather than next square when at end of clue
      */
     public void tab(int x, int y, boolean wasEmpty) {
+    		// first, try to just move one square "forward"
+    		// this is correct when we just overwrote something and there's a fillable square in front of us
 		int w = x + (currentDir == DOWN ? 1 : 0);
 		int z = y + (currentDir == ACROSS ? 1 : 0);
-		if (!wasEmpty && w < SIZE && z < SIZE && type[w][z] != -1) {
-			// go to immediate next square (you're rewriting a clue that was wrong)
-			// no code actually has to go here, we're just bypassing the else block
+		if (wasEmpty || w >= SIZE || z >= SIZE) {  // can't just go forward, abort
+			w = x;
+			z = y;
 		}
-		else {
-			// go to next empty square (you're writing in a clue fresh)
-	    		JTextField[][] tfs = panel.textFields;
-	    		w = x;
-	    		z = y;
-	    		
-			while (type[w][z] == BLACK || (tfs[w][z].getText().length() > 0
-				   && ! WHITESPACE_STRING.equals(tfs[w][z].getText()))) {
-				if (currentDir == ACROSS) {
-					z++;
-					w += z / SIZE;
-					z %= SIZE;
-					
-					if (w == SIZE && z == 0) {
-						w = 0;
-						z = 0;
-						currentDir = DOWN;
-					}
+    		JTextField[][] tfs = panel.textFields;
+    		
+		while (type[w][z] == BLACK || (tfs[w][z].getText().length() > 0
+			   && ! WHITESPACE_STRING.equals(tfs[w][z].getText()))) {
+			if (type[w][z] == BLACK) { // should jump to start of next clue (by number)
+				int[][] arr = (currentDir == ACROSS ? acrossStarts : downStarts); // what the fuck
+				int index = (currentDir == ACROSS ? acrossIndex : downIndex) + 1;
+				while (index < arr.length && arr[index] == null) { index++; }
+				if (index != arr.length) { // there's a later clue of the same type
+					w = arr[index][0] + (currentDir == DOWN ? 1 : 0);
+					z = arr[index][1] + (currentDir == ACROSS ? 1 : 0);
+					int[] clues = getClues(w, z);
+					downIndex = clues[0];
+					acrossIndex = clues[1];
+					continue;
 				}
-				else {
-					w++;
-					z += w / SIZE;
-					w %= SIZE;
-					
-					if (w == 0 && z == SIZE) {
-						w = 0;
-						z = 0;
-						currentDir = ACROSS;
-					}
+				else { // start over at beginning of puzzle
+					w = 0;
+					z = 0;
+					acrossIndex = 0;
+					downIndex = 0;
+					currentDir = !currentDir;
+					continue;
 				}
+			}
+			
+			if (currentDir == ACROSS) {
+				z++;
+				w += z / SIZE;
+				z %= SIZE;
 				
-				if (w == x && z == y) { // puzzle filled in
-					break;
+				if (w == SIZE && z == 0) {
+					w = 0;
+					z = 0;
+					currentDir = DOWN;
 				}
+			}
+			else {
+				w++;
+				z += w / SIZE;
+				w %= SIZE;
+				
+				if (w == 0 && z == SIZE) {
+					w = 0;
+					z = 0;
+					currentDir = ACROSS;
+				}
+			}
+			
+			if (w == x && z == y) { // puzzle filled in
+				break;
 			}
 		}
     		updateBanner(w, z);
@@ -272,6 +327,7 @@ public class Crossword
 /**
  * Simple JTextField extension that tracks whether the field was empty just before it gained focus.
  */
+@SuppressWarnings("serial")
 class JTextFieldWithState extends JTextField {
 	boolean wasEmpty;
 	
