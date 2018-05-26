@@ -8,6 +8,7 @@ import java.awt.event.MouseListener;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
+@SuppressWarnings("serial")
 class TestFrame extends JFrame {
 
     public TestFrame(int size) {

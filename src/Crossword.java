@@ -1,13 +1,12 @@
 package crossword;
 
-import java.awt.AWTException;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
-import java.awt.Robot;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Scanner;
@@ -26,22 +25,40 @@ import javax.swing.event.DocumentListener;
  * what-is-the-best-way-to-create-gui-for-a-crossword-puzzle-java
  *
  * @author Aryeh Zax
- * @version 06/21/16
+ * @version 05/25/18
  */
 
 public class Crossword
 {
-	private static final String FILE_NAME = "./src/crossword/032317.txt";
+	private static String fileName;
 	private CrosswordPanel panel;
-	private int[][] type; // type of square (-1 = black square, n = start of clue n, 0 = other)
+	
+	public  static final char WHITESPACE_CHAR = 8193;
+	public static final String WHITESPACE_STRING = String.valueOf(WHITESPACE_CHAR);
+	
+	// dimension of grid (standard = 15 x 15)
+	private static final int SIZE = 15;
+	
+	// type of square (-1 = black square, n = start of clue n, 0 = generic fill-able square)
+	private int[][] type;
+	private final static int BLACK = -1;
+	
+	// stores clues
 	private String[] acrossClues;
 	private String[] downClues;
+	
+	// displays both relevant clues
 	private JLabel across;
 	private JLabel down;
 	
+	boolean currentDir;
+	public static final boolean ACROSS = true;
+	public static final boolean DOWN = false;
+	
     public static void main(String[] args)
     {
-    	final Crossword[] c = { new Crossword() };
+    		fileName = args[0];
+	    	final Crossword[] c = { new Crossword() }; // hack to pass objects into dynamically defined class
         SwingUtilities.invokeLater(new Runnable()
         {
             @Override
@@ -52,38 +69,34 @@ public class Crossword
         });
     }
 
-    public void updateSquare(JTextField t)
+    /**
+     * Update the banner text to read what the across and down clues are for the given square.
+     */
+    public void updateSquare(int x, int y)
     {
-    	t.selectAll();
-    	int x = 0;
-    	int y = 0;
-    	JTextField[][] tfs = panel.textFields;
-    	for(x = 0; x < 15; x++)
-    	{
-    		for(y = 0; y < 15; y++)
-    		{
-    			if (t == tfs[x][y])
-    				break;
-    		}
-    		if (y != 15)
-    			break;
-    	}
-    	int w = y;
-    	int z = x;
-    	while (type[w][z] <= 0 || type[w][z] >= downClues.length || downClues[type[w][z]] == null)
-    		w--;
-    	int downClue = type[w][z];
-    	down.setText(downClue + "-Down: " + downClues[downClue]);
-    	
-    	w = y;
-    	while (type[w][z] <= 0 || type[w][z] >= acrossClues.length || acrossClues[type[w][z]] == null)
-    		z--;
-    	int acrossClue = type[w][z];
-    	across.setText(acrossClue + "-Across: " + acrossClues[acrossClue]);
+    		panel.textFields[x][y].grabFocus();
+	    panel.textFields[x][y].selectAll();
+	    	
+	    	// find the down clue this is part of
+	    	int w = x;
+	    	int z = y;
+	    	while (type[w][z] <= 0 || type[w][z] >= downClues.length || downClues[type[w][z]] == null)
+	    		w--;
+	    	int downClue = type[w][z];
+	    	down.setText(downClue + "-Down: " + downClues[downClue]);
+	    	
+	    	// find the across clue this is part of
+	    	w = x;
+	    	while (type[w][z] <= 0 || type[w][z] >= acrossClues.length || acrossClues[type[w][z]] == null)
+	    		z--;
+	    	int acrossClue = type[w][z];
+	    	across.setText(acrossClue + "-Across: " + acrossClues[acrossClue]);
     }
     
     private void createAndShowGUI()
     {
+    		currentDir = ACROSS;
+    		
         JFrame f = new JFrame();
         f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -119,7 +132,7 @@ public class Crossword
 
     private void generate(CrosswordPanel panel) throws FileNotFoundException
     {
-	    	Scanner sc = new Scanner(new File(FILE_NAME));
+	    	Scanner sc = new Scanner(new File(fileName));
 	    	sc.nextLine();
 	    	acrossClues = new String[sc.nextInt() + 1];
 	    	sc.nextLine();
@@ -147,8 +160,8 @@ public class Crossword
 	    	
 	    	sc.nextLine();
 	    	
-	    	int w = 15;
-	    	int h = 15;
+	    	int w = SIZE;
+	    	int h = SIZE;
 	    	type = new int[w][h];
 	
 	    	int j = 0;
@@ -167,23 +180,75 @@ public class Crossword
 	    	for (int i = 0; i < type.length; i++)
 	    		for (int k = 0; k < type.length; k++)
 	       			if (type[i][k] != -1 && (i == 0 || k == 0 || type[i - 1][k] == -1 || type[i][k - 1] == -1))
-	    				type[i][k] = num++;
+	       				type[i][k] = num++;
 	    	
 	        char[][] crossword = new char[w][h];
-	        for (int x=0; x<w; x++)
+	        for (int x = 0; x < w; x++)
 	        {
-	        	for (int y=0; y<h; y++)
+	        		for (int y = 0; y < h; y++)
 	            {
-	                if (type[y][x] == -1) // don't ask about the indexing. really, don't
+	                if (type[x][y] == -1)
 	                    crossword[x][y] = 0;
 	                else
-	                	crossword[x][y] = 8193; // em whitespace
+	                		crossword[x][y] = WHITESPACE_CHAR;
 	            }
 	        }
-	
-	        Crossword[] junk = { this };
-	        panel.setCrossword(crossword, junk);
-	    }
+	    panel.setCrossword(crossword, new Crossword[] { this });
+    }
+    
+    /**
+     * Sets the current direction of travel to be the given direction.
+     */
+    public void setDirection(boolean newDir) {
+    		currentDir = newDir;
+    }
+    
+    /**
+     * Moves the cursor to the next empty square, which depends on whether we are currently working down or across.
+     * TODO make this work like NYT: go to next clue rather than next square when at end of clue
+     * @param coord the current square, in (x, y) form
+     */
+    public void tab(int x, int y) {
+    		JTextField[][] tfs = panel.textFields;
+    		int w = x, z = y;
+    		
+		while (type[w][z] == BLACK || ! WHITESPACE_STRING.equals(tfs[w][z].getText())) {
+			if (currentDir == ACROSS) {
+				z++;
+				w += z / SIZE;
+				z %= SIZE;
+				
+				if (w == SIZE && z == 0) {
+					w = 0;
+					z = 0;
+					currentDir = DOWN;
+				}
+			}
+			else {
+				w++;
+				z += w / SIZE;
+				w %= SIZE;
+				
+				if (w == 0 && z == SIZE) {
+					w = 0;
+					z = 0;
+					currentDir = ACROSS;
+				}
+			}
+			
+			if (w == x && z == y) { // puzzle filled in
+				break;
+			}
+		}
+    		updateSquare(w, z);
+	}
+    
+    /**
+     * Go to the immediately preceding square, if it is directly left / above and filled in; otherwise remain stationary.
+     * Used when deleting from a box.
+     * TODO implement
+     */
+    // public void detab(int x, int y)
 }
 
 @SuppressWarnings("serial")
@@ -199,49 +264,82 @@ class CrosswordPanel extends JPanel
         setLayout(new GridLayout(w, h));
         textFields = new JTextField[w][h];
 
-        for (int y=0; y<h; y++)
+        for (int x = 0; x < h; x++)
         {
-            for (int x=0; x<w; x++)
+            for (int y = 0; y < w; y++)
             {
                 char c = array[x][y];
                 if (c != 0)
                 {
-                    textFields[x][y] = new JTextField(String.valueOf(c));
-                    textFields[x][y].setFont(textFields[x][y].getFont().deriveFont(20.0f));
-                    (textFields[x][y]).addFocusListener(new FocusListener() {
+                    JTextField t = new JTextField(String.valueOf(c));
+                		textFields[x][y] = t;
+                		t.setFont(t.getFont().deriveFont(20.0f));
+                		
+                    final int[] coord = { x, y };
+                    final JTextField[] ts = { t };
+                		t.addFocusListener(new FocusListener() {
 
+                			// updates which clues are displayed
 						@Override
 						public void focusGained(FocusEvent e) {
-							Object source = e.getSource();
-                    		(crossword[0]).updateSquare((JTextField) source);
+                    			(crossword[0]).updateSquare(coord[0], coord[1]);
 						}
 
+						// smartly overrides whitespace to yield consistent sizing
+						// TODO find out some way to make this work
 						@Override
-						public void focusLost(FocusEvent e) { }
+						public void focusLost(FocusEvent e) {
+//							String s = ts[0].getText();
+//							s = s.replaceAll("\\s+","");
+//							if (s.length() == 0) {
+//								s = Crossword.WHITESPACE_STRING;
+//							}
+//							ts[0].setText(s);
+						}
  
                     });
                     
-                    textFields[x][y].getDocument().addDocumentListener(new DocumentListener() {
+                    // allows for a single character write into box, then run away to next unfilled box
+                    t.getDocument().addDocumentListener(new DocumentListener() {
 
 						@Override
-						public void insertUpdate(DocumentEvent e) {	update(e); }
-						@Override
-						public void removeUpdate(DocumentEvent e) { }
-						@Override
-						public void changedUpdate(DocumentEvent e) { update(e); }
-						
-						private void update(DocumentEvent e) {
-					    	try {
-								Robot robot = new Robot(); // bad hack to tab over to next square (only works for across clues)
-								robot.keyPress(KeyEvent.VK_TAB);
-							} catch (AWTException f) {
-								f.printStackTrace(); // rude, but whatever
-							}
+						public void insertUpdate(DocumentEvent e) {
+							(crossword[0]).tab(coord[0], coord[1]);
 						}
+						@Override
+						public void removeUpdate(DocumentEvent e) { } // allow to overwrite after deleting
+						@Override
+						public void changedUpdate(DocumentEvent e) { } // this kind of update is stupid
 					
                     });
                     
-                    add(textFields[x][y]);
+                    // allows for arrow presses to trigger across / down mode
+                    t.addKeyListener(new KeyListener() {
+
+						@Override
+						public void keyTyped(KeyEvent e) { }
+						
+						@Override
+						public void keyPressed(KeyEvent e) { }
+
+						@Override
+						public void keyReleased(KeyEvent e) {
+							switch(e.getKeyCode()) {
+								case KeyEvent.VK_RIGHT:
+								case KeyEvent.VK_KP_RIGHT:
+									(crossword[0]).setDirection(Crossword.ACROSS);
+									break;
+								case KeyEvent.VK_DOWN:
+								case KeyEvent.VK_KP_DOWN:
+									(crossword[0]).setDirection(Crossword.DOWN);
+									break;
+								default: break;
+							}
+							ts[0].selectAll();
+						}
+                    		
+                    });
+                    add(t);
                 }
                 else
                 {
@@ -251,28 +349,5 @@ class CrosswordPanel extends JPanel
         }
         getParent().validate();
         repaint();
-    }
-
-    char[][] getCrossword()
-    {
-        int w = textFields.length;
-        int h = textFields[0].length;
-        char crossword[][] = new char[w][h];
-        for (int y=0; y<h; y++)
-        {
-            for (int x=0; x<w; x++)
-            {
-                if (textFields[x][y] != null)
-                {
-                    String s = textFields[x][y].getText();
-                    if (s.length() > 0)
-                    {
-                        crossword[x][y] = s.charAt(0);
-                    }
-
-                }
-            }
-        }
-        return crossword;
     }
 }
