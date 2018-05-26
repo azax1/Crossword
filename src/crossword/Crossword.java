@@ -58,13 +58,13 @@ public class Crossword
     public static void main(String[] args)
     {
     		fileName = args[0];
-	    	final Crossword[] c = { new Crossword() }; // hack to pass objects into dynamically defined class
+	    	final Crossword[] crossword = { new Crossword() }; // hack to pass objects into dynamically defined class
         SwingUtilities.invokeLater(new Runnable()
         {
             @Override
             public void run()
             {
-                (c[0]).createAndShowGUI();
+                (crossword[0]).createAndShowGUI();
             }
         });
     }
@@ -72,7 +72,7 @@ public class Crossword
     /**
      * Update the banner text to read what the across and down clues are for the given square.
      */
-    public void updateSquare(int x, int y)
+    public void updateBanner(int x, int y)
     {
     		panel.textFields[x][y].grabFocus();
 	    panel.textFields[x][y].selectAll();
@@ -212,7 +212,8 @@ public class Crossword
     		JTextField[][] tfs = panel.textFields;
     		int w = x, z = y;
     		
-		while (type[w][z] == BLACK || ! WHITESPACE_STRING.equals(tfs[w][z].getText())) {
+		while (type[w][z] == BLACK || (tfs[w][z].getText().length() > 0
+			   && ! WHITESPACE_STRING.equals(tfs[w][z].getText()))) {
 			if (currentDir == ACROSS) {
 				z++;
 				w += z / SIZE;
@@ -240,15 +241,23 @@ public class Crossword
 				break;
 			}
 		}
-    		updateSquare(w, z);
+    		updateBanner(w, z);
 	}
     
     /**
      * Go to the immediately preceding square, if it is directly left / above and filled in; otherwise remain stationary.
      * Used when deleting from a box.
-     * TODO implement
      */
-    // public void detab(int x, int y)
+    public void detab(int x, int y) {
+    		int w = x - (currentDir == DOWN ? 1 : 0);
+		int z = y - (currentDir == ACROSS ? 1 : 0);
+    		if (w >= 0 && z >= 0 && type[w][z] != -1) {
+    			if (! (WHITESPACE_STRING.equals(panel.textFields[w][z].getText())
+    				|| (panel.textFields[w][z].getText().length() == 0))) {
+    				updateBanner(w, z);
+    			}
+    		}
+    }
 }
 
 @SuppressWarnings("serial")
@@ -282,7 +291,7 @@ class CrosswordPanel extends JPanel
                 			// updates which clues are displayed
 						@Override
 						public void focusGained(FocusEvent e) {
-                    			(crossword[0]).updateSquare(coord[0], coord[1]);
+                    			(crossword[0]).updateBanner(coord[0], coord[1]);
 						}
 
 						// smartly overrides whitespace to yield consistent sizing
@@ -314,6 +323,7 @@ class CrosswordPanel extends JPanel
                     });
                     
                     // allows for arrow presses to trigger across / down mode
+                    // allows for backspacing to jump back one square when useful
                     t.addKeyListener(new KeyListener() {
 
 						@Override
@@ -327,13 +337,21 @@ class CrosswordPanel extends JPanel
 							switch(e.getKeyCode()) {
 								case KeyEvent.VK_RIGHT:
 								case KeyEvent.VK_KP_RIGHT:
+								case KeyEvent.VK_LEFT:
+								case KeyEvent.VK_KP_LEFT:
 									(crossword[0]).setDirection(Crossword.ACROSS);
 									break;
 								case KeyEvent.VK_DOWN:
 								case KeyEvent.VK_KP_DOWN:
+								case KeyEvent.VK_UP:
+								case KeyEvent.VK_KP_UP:
 									(crossword[0]).setDirection(Crossword.DOWN);
 									break;
-								default: break;
+								case KeyEvent.VK_BACK_SPACE:
+									(crossword[0]).detab(coord[0], coord[1]);
+									break;
+								default:
+									break;
 							}
 							ts[0].selectAll();
 						}
