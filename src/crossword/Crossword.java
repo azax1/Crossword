@@ -93,11 +93,12 @@ public class Crossword
 	    	
 	    	return ret;
     	}
+    	
     /**
      * Update the banner text to read what the across and down clues are for the given square.
      * Also updates the across and down indices.
      */
-    public void updateBanner(int x, int y)
+    public void switchToSquare(int x, int y)
     {
     		panel.textFields[x][y].grabFocus();
 	    panel.textFields[x][y].selectAll();
@@ -254,8 +255,8 @@ public class Crossword
 			w = x;
 			z = y;
 		}
-		else if (type[w][z] != BLACK) {
-			updateBanner(w, z);
+		else if (type[w][z] != BLACK) { // going forward is a go
+			switchToSquare(w, z);
 			return;
 		}
 		
@@ -292,7 +293,7 @@ public class Crossword
 				break;
 			}
 		}
-    		updateBanner(w, z);
+    		switchToSquare(w, z);
 	}
     
     /**
@@ -305,7 +306,7 @@ public class Crossword
     		if (w >= 0 && z >= 0 && type[w][z] != BLACK) {
     			if (! (WHITESPACE_STRING.equals(panel.textFields[w][z].getText())
     				|| (panel.textFields[w][z].getText().length() == 0))) {
-    				updateBanner(w, z);
+    				switchToSquare(w, z);
     			}
     		}
     }
@@ -355,7 +356,7 @@ class CrosswordPanel extends JPanel
                 			// updates which clues are displayed
 						@Override
 						public void focusGained(FocusEvent e) {
-                    			(crossword[0]).updateBanner(coord[0], coord[1]);
+                    			(crossword[0]).switchToSquare(coord[0], coord[1]);
 						}
 
 						@Override
