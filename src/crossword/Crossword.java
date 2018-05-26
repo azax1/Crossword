@@ -206,39 +206,48 @@ public class Crossword
     /**
      * Moves the cursor to the next empty square, which depends on whether we are currently working down or across.
      * TODO make this work like NYT: go to next clue rather than next square when at end of clue
-     * @param coord the current square, in (x, y) form
      */
-    public void tab(int x, int y) {
-    		JTextField[][] tfs = panel.textFields;
-    		int w = x, z = y;
-    		
-		while (type[w][z] == BLACK || (tfs[w][z].getText().length() > 0
-			   && ! WHITESPACE_STRING.equals(tfs[w][z].getText()))) {
-			if (currentDir == ACROSS) {
-				z++;
-				w += z / SIZE;
-				z %= SIZE;
-				
-				if (w == SIZE && z == 0) {
-					w = 0;
-					z = 0;
-					currentDir = DOWN;
+    public void tab(int x, int y, boolean wasEmpty) {
+		int w = x + (currentDir == DOWN ? 1 : 0);
+		int z = y + (currentDir == ACROSS ? 1 : 0);
+		if (!wasEmpty && w < SIZE && z < SIZE && type[w][z] != -1) {
+			// go to immediate next square (you're rewriting a clue that was wrong)
+			// no code actually has to go here, we're just bypassing the else block
+		}
+		else {
+			// go to next empty square (you're writing in a clue fresh)
+	    		JTextField[][] tfs = panel.textFields;
+	    		w = x;
+	    		z = y;
+	    		
+			while (type[w][z] == BLACK || (tfs[w][z].getText().length() > 0
+				   && ! WHITESPACE_STRING.equals(tfs[w][z].getText()))) {
+				if (currentDir == ACROSS) {
+					z++;
+					w += z / SIZE;
+					z %= SIZE;
+					
+					if (w == SIZE && z == 0) {
+						w = 0;
+						z = 0;
+						currentDir = DOWN;
+					}
 				}
-			}
-			else {
-				w++;
-				z += w / SIZE;
-				w %= SIZE;
-				
-				if (w == 0 && z == SIZE) {
-					w = 0;
-					z = 0;
-					currentDir = ACROSS;
+				else {
+					w++;
+					z += w / SIZE;
+					w %= SIZE;
+					
+					if (w == 0 && z == SIZE) {
+						w = 0;
+						z = 0;
+						currentDir = ACROSS;
+					}
 				}
-			}
-			
-			if (w == x && z == y) { // puzzle filled in
-				break;
+				
+				if (w == x && z == y) { // puzzle filled in
+					break;
+				}
 			}
 		}
     		updateBanner(w, z);
@@ -258,6 +267,18 @@ public class Crossword
     			}
     		}
     }
+}
+
+/**
+ * Simple JTextField extension that tracks whether the field was empty just before it gained focus.
+ */
+class JTextFieldWithState extends JTextField {
+	boolean wasEmpty;
+	
+	public JTextFieldWithState(String s) {
+		super(s);
+		wasEmpty = true;
+	}
 }
 
 @SuppressWarnings("serial")
@@ -280,12 +301,12 @@ class CrosswordPanel extends JPanel
                 char c = array[x][y];
                 if (c != 0)
                 {
-                    JTextField t = new JTextField(String.valueOf(c));
+                    JTextFieldWithState t = new JTextFieldWithState(String.valueOf(c));
                 		textFields[x][y] = t;
                 		t.setFont(t.getFont().deriveFont(20.0f));
                 		
                     final int[] coord = { x, y };
-                    final JTextField[] ts = { t };
+                    final JTextFieldWithState[] ts = { t };
                 		t.addFocusListener(new FocusListener() {
 
                 			// updates which clues are displayed
@@ -294,16 +315,9 @@ class CrosswordPanel extends JPanel
                     			(crossword[0]).updateBanner(coord[0], coord[1]);
 						}
 
-						// smartly overrides whitespace to yield consistent sizing
-						// TODO find out some way to make this work
 						@Override
 						public void focusLost(FocusEvent e) {
-//							String s = ts[0].getText();
-//							s = s.replaceAll("\\s+","");
-//							if (s.length() == 0) {
-//								s = Crossword.WHITESPACE_STRING;
-//							}
-//							ts[0].setText(s);
+							ts[0].wasEmpty = ts[0].getText().length() == 0;
 						}
  
                     });
@@ -313,7 +327,7 @@ class CrosswordPanel extends JPanel
 
 						@Override
 						public void insertUpdate(DocumentEvent e) {
-							(crossword[0]).tab(coord[0], coord[1]);
+							(crossword[0]).tab(coord[0], coord[1], ts[0].wasEmpty);
 						}
 						@Override
 						public void removeUpdate(DocumentEvent e) { } // allow to overwrite after deleting
