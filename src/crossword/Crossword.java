@@ -274,13 +274,15 @@ public class Crossword
 					acrossIndex = clues[0];
 					downIndex = clues[1];
 				}
-				else { // start over at beginning of puzzle
-					// TODO make compatible with (0, 0) square being blocked out
-					w = 0;
-					z = 0;
-					acrossIndex = 1;
-					downIndex = 1;
+				else { // no later clue, change dir and start over at beginning of puzzle
 					currentDir = !currentDir;
+					int[] coords = (currentDir == ACROSS ? acrossStarts : downStarts)[1];
+					w = coords[0] + (currentDir == ACROSS ? 1 : 0);
+					z = coords[1] + (currentDir == DOWN ? 1 : 0);
+					
+					int[] indices = getClues(w, z);
+					acrossIndex = indices[0];
+					downIndex = indices[1];
 				}
 			}
 			else {
