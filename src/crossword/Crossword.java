@@ -1,6 +1,7 @@
 package crossword;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.awt.event.FocusEvent;
@@ -31,16 +32,16 @@ import javax.swing.event.DocumentListener;
 public class Crossword
 {
 	private static String fileName;
-	private CrosswordPanel panel;
+	CrosswordPanel panel;
 	
-	public  static final char WHITESPACE_CHAR = 8193;
+	public static final char WHITESPACE_CHAR = 8193;
 	public static final String WHITESPACE_STRING = String.valueOf(WHITESPACE_CHAR);
 	
 	// dimension of grid (standard = 15 x 15)
-	private static final int SIZE = 15;
+	static final int SIZE = 15;
 	
 	// type of square (-1 = black square, n = start of clue n, 0 = generic fill-able square)
-	private int[][] type;
+	int[][] type;
 	private final static int BLACK = -1;
 	
 	// stores clues
@@ -61,6 +62,7 @@ public class Crossword
 	private JLabel down;
 	
 	boolean currentDir;
+	
 	public static final boolean ACROSS = true;
 	public static final boolean DOWN = false;
 	
@@ -78,28 +80,55 @@ public class Crossword
         });
     }
 
-    	private int[] getClues(int x, int y) {
-    		int[] ret = new int[2];
+    	/**
+    	 * Returns the starting squares of the two clues (across, then down) that cross (x, y).
+    	 */
+    	int[][] getSquares(int x, int y) {
+    		int[][] ret = new int[2][2];
     		int w = Math.min(SIZE - 1, x);
 	    	int z = Math.min(SIZE - 1,  y);
 	    	while (type[w][z] >= acrossClues.length || acrossClues[type[w][z]] == null)
 	    		w--;
-	    	ret[0] = type[w][z]; // the across clue
+	    	ret[0] = new int[] { w, z }; // the across clue
 	    	
 	    	w = Math.min(SIZE - 1, x);
 	    	while (type[w][z] >= downClues.length || downClues[type[w][z]] == null)
 	    		z--;
-	    	ret[1] = type[w][z]; // the down clue
+	    	ret[1] = new int[] { w, z }; // the down clue
 	    	
+	    	return ret;
+    	}
+    	
+    	/**
+    	 * Returns the numbers of the two clues (across, then down) that cross (x, y).
+    	 */
+    	private int[] getClues(int x, int y) {
+    		int[][] squares = getSquares(x, y);
+    		int[] ret = new int[2];
+    		ret[0] = type[squares[0][0]][squares[0][1]]; // the across clue
+    		ret[1] = type[squares[1][0]][squares[1][1]]; // the across clue
 	    	return ret;
     	}
     	
     /**
      * Update the banner text to read what the across and down clues are for the given square.
-     * Also updates the across and down indices.
+     * Also updates the across and down indices, and highlights the relevant squares.
      */
     public void switchToSquare(int x, int y)
     {
+    		// de-highlight
+    		for (int w = 0; w < SIZE; w++) {
+    			for (int z = 0; z < SIZE; z++) {
+    				if (type[w][z] != -1) {
+    					panel.textFields[w][z].setBackground(Color.WHITE);
+    				}
+    			}
+    		}
+    		
+    		try {
+				Thread.sleep(10);
+			} catch (InterruptedException e) { }
+    	
     		panel.textFields[x][y].grabFocus();
 	    panel.textFields[x][y].selectAll();
 	    	
@@ -109,6 +138,15 @@ public class Crossword
 	    	
 	    	down.setText(downIndex + "-Down: " + downClues[downIndex]);
 	    	across.setText(acrossIndex + "-Across: " + acrossClues[acrossIndex]);
+	    
+	    	// highlight
+	    int[][] squares = getSquares(x, y);
+	    	for (int w = squares[0][0]; w < SIZE && type[w][y] != -1; w++) {
+	    		panel.textFields[w][y].setBackground(Color.YELLOW);
+	    	}
+	    	for (int z = squares[1][1]; z < SIZE && type[x][z] != -1; z++) {
+	    		panel.textFields[x][z].setBackground(Color.YELLOW);
+	    	}
     }
     
     private void createAndShowGUI()
@@ -141,8 +179,8 @@ public class Crossword
         f.setSize(800, 800);
         try {
 			generate(panels[0]); // TODO why is this wrapped in an array?
-		} catch (FileNotFoundException e1) {
-			e1.printStackTrace();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
 		}
         f.setLocationRelativeTo(null);
         f.setVisible(true);
@@ -317,7 +355,7 @@ public class Crossword
 
 /**
  * Simple JTextField extension that supports tracking whether the field was empty just before it gained focus.
- * TODO come up with a better name
+ * TODO come up with a better name now that there is more functionality
  */
 @SuppressWarnings("serial")
 class JTextFieldWithState extends JTextField {
