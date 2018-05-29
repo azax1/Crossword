@@ -245,21 +245,22 @@ public class Crossword
     /**
      * Moves the cursor to the next empty square, which depends on whether we are currently working down or across.
      */
-    public void tab(int x, int y, boolean wasEmpty) {
+    public void tab(int x, int y, boolean skipFilled) {
+		JTextField[][] tfs = panel.textFields;
     		// first, try to just move one square "forward"
     		// this is correct when we just overwrote something and there's a fillable square in front of us
 		int w = x + (currentDir == ACROSS ? 1 : 0);
 		int z = y + (currentDir == DOWN ? 1 : 0);
-		if (wasEmpty || w >= SIZE || z >= SIZE) {  // can't just go forward, abort
+		if (w >= SIZE || z >= SIZE) {  // can't just go forward, abort
 			w = x;
 			z = y;
 		}
-		else if (type[w][z] != BLACK) { // going forward is a go
+		else if (type[w][z] != BLACK &&
+				! (skipFilled && ((JTextFieldWithState) tfs[w][z]).isFilled())) { // going forward is a go
 			switchToSquare(w, z);
 			return;
 		}
 		
-    		JTextField[][] tfs = panel.textFields;
 		while (w == SIZE || z == SIZE
 			  || type[w][z] == BLACK
 			  || (tfs[w][z].getText().length() > 0 && ! WHITESPACE_STRING.equals(tfs[w][z].getText()))) {
@@ -274,7 +275,7 @@ public class Crossword
 					acrossIndex = clues[0];
 					downIndex = clues[1];
 				}
-				else { // no later clue, change dir and start over at beginning of puzzle
+				else { // no later clue; change dir and start over at beginning of puzzle
 					currentDir = !currentDir;
 					int[] coords = (currentDir == ACROSS ? acrossStarts : downStarts)[1];
 					w = coords[0] + (currentDir == ACROSS ? 1 : 0);
@@ -299,13 +300,14 @@ public class Crossword
     
     /**
      * Go to the immediately preceding square, if it is directly left / above and filled in; otherwise remain stationary.
-     * Used when deleting from a box.
+     * Used when navigating with up / left arrow keys or deleting from a box.
      */
-    public void detab(int x, int y) {
+    public void detab(int x, int y, boolean skipFilled) {
     		int w = x - (currentDir == ACROSS ? 1 : 0);
 		int z = y - (currentDir == DOWN ? 1 : 0);
     		if (w >= 0 && z >= 0 && type[w][z] != BLACK) {
-    			if (! (WHITESPACE_STRING.equals(panel.textFields[w][z].getText())
+    			if (skipFilled
+    				|| ! (WHITESPACE_STRING.equals(panel.textFields[w][z].getText())
     				|| (panel.textFields[w][z].getText().length() == 0))) {
     				switchToSquare(w, z);
     			}
@@ -315,6 +317,7 @@ public class Crossword
 
 /**
  * Simple JTextField extension that supports tracking whether the field was empty just before it gained focus.
+ * TODO come up with a better name
  */
 @SuppressWarnings("serial")
 class JTextFieldWithState extends JTextField {
@@ -323,6 +326,14 @@ class JTextFieldWithState extends JTextField {
 	public JTextFieldWithState(String s) {
 		super(s);
 		wasEmpty = true;
+	}
+	
+	/**
+	 * Returns true unless all the current contents of the square are whitespace.
+	 * Returns true if the data field is empty.
+	 */
+	public boolean isFilled() {
+		return this.getText().trim().length() > 0;
 	}
 }
 
@@ -396,18 +407,42 @@ class CrosswordPanel extends JPanel
 							switch(e.getKeyCode()) {
 								case KeyEvent.VK_RIGHT:
 								case KeyEvent.VK_KP_RIGHT:
+									if (crossword[0].currentDir != Crossword.ACROSS) {
+										(crossword[0]).setDirection(Crossword.ACROSS);
+									}
+									else {
+										crossword[0].tab(coord[0], coord[1], false);
+									}
+									break;
 								case KeyEvent.VK_LEFT:
 								case KeyEvent.VK_KP_LEFT:
-									(crossword[0]).setDirection(Crossword.ACROSS);
+									if (crossword[0].currentDir != Crossword.ACROSS) {
+										(crossword[0]).setDirection(Crossword.ACROSS);
+									}
+									else {
+										crossword[0].detab(coord[0], coord[1], false);
+									}
 									break;
 								case KeyEvent.VK_DOWN:
 								case KeyEvent.VK_KP_DOWN:
+									if (crossword[0].currentDir != Crossword.DOWN) {
+										(crossword[0]).setDirection(Crossword.DOWN);
+									}
+									else {
+										crossword[0].tab(coord[0], coord[1], false);
+									}
+									break;
 								case KeyEvent.VK_UP:
 								case KeyEvent.VK_KP_UP:
-									(crossword[0]).setDirection(Crossword.DOWN);
+									if (crossword[0].currentDir != Crossword.DOWN) {
+										(crossword[0]).setDirection(Crossword.DOWN);
+									}
+									else {
+										crossword[0].detab(coord[0], coord[1], false);
+									}
 									break;
 								case KeyEvent.VK_BACK_SPACE:
-									(crossword[0]).detab(coord[0], coord[1]);
+									(crossword[0]).detab(coord[0], coord[1], false);
 									break;
 								default:
 									break;
