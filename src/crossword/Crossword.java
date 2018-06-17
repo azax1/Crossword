@@ -38,7 +38,7 @@ public class Crossword
 	public static final String WHITESPACE_STRING = String.valueOf(WHITESPACE_CHAR);
 	
 	// dimension of grid (standard = 15 x 15)
-	static final int SIZE = 15;
+	static int SIZE;
 	
 	// type of square (-1 = black square, n = start of clue n, 0 = generic fill-able square)
 	int[][] type;
@@ -126,7 +126,7 @@ public class Crossword
     		}
     		
     		try {
-				Thread.sleep(10);
+				Thread.sleep(0);
 			} catch (InterruptedException e) { }
     	
     		panel.textFields[x][y].grabFocus();
@@ -220,6 +220,8 @@ public class Crossword
 	    	
 	    	sc.nextLine();
 	    	
+	    	SIZE = Integer.parseInt(sc.nextLine());
+	    	
 	    	int w = SIZE;
 	    	int h = SIZE;
 	    	type = new int[w][h];
@@ -282,6 +284,8 @@ public class Crossword
     
     /**
      * Moves the cursor to the next empty square, which depends on whether we are currently working down or across.
+     * Behavior depends slightly on filled-in status to determine whether we are erasing pre-filled squares or
+     * because they are likely incorrect or wish to skip over them because they are likely correct.
      */
     public void tab(int x, int y, boolean skipFilled) {
 		JTextField[][] tfs = panel.textFields;
@@ -411,7 +415,7 @@ class CrosswordPanel extends JPanel
 
 						@Override
 						public void focusLost(FocusEvent e) {
-							ts[0].wasEmpty = ts[0].getText().length() == 0;
+							ts[0].wasEmpty = ! ts[0].isFilled();
 						}
  
                     });
